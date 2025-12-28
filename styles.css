@@ -852,7 +852,17 @@ section {
         font-size: 4rem;
     }
 
-    .about-content,
+    .about-content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .about-image,
+    .about-text {
+        max-width: 100%;
+        overflow: hidden;
+    }
+
     .contact-info {
         flex-direction: column;
         gap: 30px;
