@@ -159,6 +159,7 @@ const createGalleryModal = () => {
             <button class="modal-prev">&#8249;</button>
             <button class="modal-next">&#8250;</button>
             <img class="modal-image" src="" alt="">
+            <video class="modal-video" controls playsinline></video>
             <div class="modal-indicators"></div>
         </div>
     `;
@@ -168,6 +169,7 @@ const createGalleryModal = () => {
 
 const galleryModal = createGalleryModal();
 const modalImage = galleryModal.querySelector(".modal-image");
+const modalVideo = galleryModal.querySelector(".modal-video");
 const modalOverlay = galleryModal.querySelector(".modal-overlay");
 const modalClose = galleryModal.querySelector(".modal-close");
 const modalPrev = galleryModal.querySelector(".modal-prev");
@@ -179,14 +181,38 @@ let galleryImages = [];
 let touchStartX = 0;
 let touchEndX = 0;
 
-// Get all gallery images
+// Get all gallery items (images + video)
 const updateGalleryImages = () => {
-  galleryImages = Array.from(
-    document.querySelectorAll(".gallery-item img")
-  ).map((img) => ({
-    src: img.src,
-    alt: img.alt,
-  }));
+  const items = Array.from(document.querySelectorAll(".gallery-item"));
+  const media = [];
+
+  items.forEach((item) => {
+    const isVideo = item.dataset.galleryType === "video";
+    if (isVideo) {
+      const src = item.dataset.videoSrc;
+      if (!src) return;
+      const alt = item.dataset.videoAlt || "Видео";
+      const poster = item.dataset.videoPoster || "";
+      item.dataset.galleryIndex = String(media.length);
+      media.push({
+        type: "video",
+        src,
+        alt,
+        poster,
+      });
+    } else {
+      const img = item.querySelector("img");
+      if (!img) return;
+      item.dataset.galleryIndex = String(media.length);
+      media.push({
+        type: "image",
+        src: img.src,
+        alt: img.alt,
+      });
+    }
+  });
+
+  galleryImages = media;
   createIndicators();
 };
 
@@ -222,9 +248,22 @@ const updateIndicators = () => {
 const openModal = (index) => {
   if (galleryImages.length === 0) return;
   currentImageIndex = index;
-  modalImage.style.opacity = "1";
-  modalImage.src = galleryImages[currentImageIndex].src;
-  modalImage.alt = galleryImages[currentImageIndex].alt;
+  const media = galleryImages[currentImageIndex];
+  if (media.type === "video") {
+    modalImage.style.display = "none";
+    modalVideo.style.display = "block";
+    modalVideo.src = media.src;
+    modalVideo.poster = media.poster || "";
+    modalVideo.load();
+  } else {
+    modalVideo.pause();
+    modalVideo.removeAttribute("src");
+    modalVideo.style.display = "none";
+    modalImage.style.display = "block";
+    modalImage.style.opacity = "1";
+    modalImage.src = media.src;
+    modalImage.alt = media.alt;
+  }
   galleryModal.classList.add("active");
   document.body.style.overflow = "hidden";
   updateIndicators();
@@ -234,6 +273,7 @@ const openModal = (index) => {
 const closeModal = () => {
   galleryModal.classList.remove("active");
   document.body.style.overflow = "";
+  modalVideo.pause();
 };
 
 // Navigate to previous image
@@ -251,10 +291,26 @@ const showNext = () => {
 
 // Change image with fade animation
 const changeImage = () => {
+  const media = galleryImages[currentImageIndex];
+  if (media.type === "video") {
+    modalImage.style.display = "none";
+    modalVideo.style.display = "block";
+    modalVideo.pause();
+    modalVideo.src = media.src;
+    modalVideo.poster = media.poster || "";
+    modalVideo.load();
+    updateIndicators();
+    return;
+  }
+
+  modalVideo.pause();
+  modalVideo.removeAttribute("src");
+  modalVideo.style.display = "none";
+  modalImage.style.display = "block";
   modalImage.style.opacity = "0";
   setTimeout(() => {
-    modalImage.src = galleryImages[currentImageIndex].src;
-    modalImage.alt = galleryImages[currentImageIndex].alt;
+    modalImage.src = media.src;
+    modalImage.alt = media.alt;
     modalImage.style.opacity = "1";
     updateIndicators();
   }, 150);
@@ -267,8 +323,10 @@ const initGallery = () => {
 
   updateGalleryImages();
 
-  galleryItems.forEach((item, index) => {
+  galleryItems.forEach((item) => {
     item.addEventListener("click", () => {
+      const index = Number(item.dataset.galleryIndex);
+      if (Number.isNaN(index)) return;
       openModal(index);
     });
   });
